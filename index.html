@@ -84,6 +84,49 @@
             animation: treasure-pop 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         }
 
+        @keyframes player-cast {
+            0% { transform: translateX(0) scale(1); }
+            20% { transform: translateX(-10px) scale(1.08); }
+            50% { transform: translateX(18px) scale(1.03); }
+            100% { transform: translateX(0) scale(1); }
+        }
+        .player-cast {
+            animation: player-cast 0.45s ease-in-out;
+        }
+
+        @keyframes spell-bolt {
+            0% { transform: translate(-30px, 0) scale(0.5); opacity: 0; }
+            25% { opacity: 1; }
+            100% { transform: translate(140px, -28px) scale(1.05); opacity: 0; }
+        }
+        .spell-bolt {
+            position: absolute;
+            width: 120px;
+            height: 18px;
+            border-radius: 9999px;
+            background: linear-gradient(90deg, rgba(255,255,255,0.9), rgba(96,165,250,1), rgba(168,85,247,1));
+            box-shadow: 0 0 25px rgba(96,165,250,0.9);
+            animation: spell-bolt 0.45s ease-out forwards;
+            pointer-events: none;
+            z-index: 35;
+        }
+
+        @keyframes spell-burst {
+            0% { transform: scale(0.4); opacity: 0; }
+            20% { opacity: 1; }
+            100% { transform: scale(2.2); opacity: 0; }
+        }
+        .spell-burst {
+            position: absolute;
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,255,255,0.95), rgba(96,165,250,0.8), rgba(168,85,247,0.15), transparent 65%);
+            animation: spell-burst 0.55s ease-out forwards;
+            pointer-events: none;
+            z-index: 30;
+        }
+
         /* テンキーのボタンを押しやすくするためのスタイル */
         .numpad-btn {
             transition: all 0.1s;
@@ -190,7 +233,7 @@
                             <div id="player-hp-bar" class="bg-green-500 h-full w-full transition-all duration-300"></div>
                         </div>
                     </div>
-                    <div class="text-7xl md:text-8xl drop-shadow-lg">🧙‍♂️</div>
+                    <div id="player-character" class="relative text-7xl md:text-8xl drop-shadow-lg mb-2">🧙‍♂️</div>
                 </div>
             </div>
 
@@ -695,10 +738,37 @@
             const timeTaken = Date.now() - questionStartTime;
             const isCritical = timeTaken <= CRITICAL_TIME_LIMIT;
 
-            // 魔法エフェクト
+            const playerCharacter = document.getElementById('player-character');
+            if (playerCharacter) {
+                playerCharacter.classList.remove('player-cast');
+                void playerCharacter.offsetWidth;
+                playerCharacter.classList.add('player-cast');
+            }
+
+            const spellBolt = document.createElement('div');
+            spellBolt.className = 'spell-bolt';
+            const playerRect = playerCharacter.getBoundingClientRect();
+            const enemyRect = enemySprite.getBoundingClientRect();
+            const containerRect = magicContainer.getBoundingClientRect();
+            spellBolt.style.left = `${playerRect.left - containerRect.left + 80}px`;
+            spellBolt.style.top = `${playerRect.top - containerRect.top + 60}px`;
+            spellBolt.style.background = isCritical ? 'linear-gradient(90deg, rgba(255,255,255,1), rgba(250,204,21,1), rgba(239,68,68,1))' : 'linear-gradient(90deg, rgba(255,255,255,0.9), rgba(96,165,250,1), rgba(168,85,247,1))';
+            magicContainer.appendChild(spellBolt);
+            setTimeout(() => spellBolt.remove(), 460);
+
+            const spellBurst = document.createElement('div');
+            spellBurst.className = 'spell-burst';
+            spellBurst.style.left = `${enemyRect.left - containerRect.left + 40}px`;
+            spellBurst.style.top = `${enemyRect.top - containerRect.top + 20}px`;
+            spellBurst.style.background = isCritical ? 'radial-gradient(circle, rgba(255,255,255,1), rgba(251,191,36,1), rgba(239,68,68,0.3), transparent 65%)' : 'radial-gradient(circle, rgba(255,255,255,0.95), rgba(96,165,250,1), rgba(168,85,247,0.2), transparent 65%)';
+            magicContainer.appendChild(spellBurst);
+            setTimeout(() => spellBurst.remove(), 550);
+
             const effect = document.createElement('div');
             effect.innerText = isCritical ? '💥' : ['✨', '🔥', '⚡', '🌟'][Math.floor(Math.random() * 4)];
             effect.className = 'magic-effect';
+            effect.style.left = `${enemyRect.left - containerRect.left + 30}px`;
+            effect.style.top = `${enemyRect.top - containerRect.top + 30}px`;
             if (isCritical) effect.style.fontSize = '6rem'; // クリティカルはエフェクト大
             magicContainer.appendChild(effect);
             setTimeout(() => effect.remove(), 500);
