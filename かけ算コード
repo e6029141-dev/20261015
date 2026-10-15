@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>九九の魔法大冒険</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    
+    <style>
+        body {
+            font-family: 'M PLUS Rounded 1c', sans-serif;
+            background-color: #87CEEB; /* 空色 */
+            touch-action: manipulation; /* ダブルタップズーム防止 */
+            user-select: none;
+        }
+
+        /* カスタムアニメーション */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px) rotate(-5deg); }
+            50% { transform: translateX(10px) rotate(5deg); }
+            75% { transform: translateX(-10px) rotate(-5deg); }
+        }
+        .animate-shake {
+            animation: shake 0.5s ease-in-out;
+        }
+
+        @keyframes magic-hit {
+            0% { transform: scale(0.5); opacity: 0; }
+            50% { transform: scale(1.5); opacity: 1; }
+            100% { transform: scale(2); opacity: 0; }
+        }
+        .magic-effect {
+            position: absolute;
+            font-size: 4rem;
+            animation: magic-hit 0.5s forwards;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        @keyframes bounce-in {
+            0% { transform: scale(0); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        .animate-bounce-in {
+            animation: bounce-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes critical-pop {
+            0% { transform: scale(0.5) rotate(-10deg); opacity: 0; }
+            50% { transform: scale(1.5) rotate(5deg); opacity: 1; }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+        .animate-critical {
+            animation: critical-pop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            background: -webkit-linear-gradient(45deg, #fbbf24, #ef4444);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0px 4px 10px rgba(255,0,0,0.4);
+        }
+
+        /* テンキーのボタンを押しやすくするためのスタイル */
+        .numpad-btn {
+            transition: all 0.1s;
+            box-shadow: 0 4px 0 #cbd5e1;
+        }
+        .numpad-btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 0 0 #cbd5e1;
+        }
+        .action-btn {
+            box-shadow: 0 4px 0 #e11d48; /* Red shadow for attack */
+        }
+        .action-btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 0 0 #e11d48;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex items-center justify-center bg-gradient-to-b from-blue-300 to-green-400">
+
+    <!-- アプリコンテナ（横長サイズに変更） -->
+    <div id="app-container" class="relative w-full h-full max-w-5xl bg-white/90 shadow-2xl overflow-hidden flex flex-col sm:rounded-2xl sm:h-[85vh] sm:max-h-[650px]">
+        
+        <!-- タイトル画面 -->
+        <div id="screen-title" class="absolute inset-0 flex flex-col items-center justify-center p-6 bg-gradient-to-b from-purple-500 to-indigo-600 text-white z-20">
+            <h1 class="text-5xl md:text-6xl font-extrabold text-center leading-tight mb-8 text-yellow-300 drop-shadow-md">
+                くくのまほう<br>だいぼうけん
+            </h1>
+            <div class="flex flex-row items-center gap-12 mb-8">
+                <div class="text-8xl animate-bounce">🧙‍♂️✨</div>
+                <div class="flex flex-col gap-6">
+                    <button onclick="showScreen('screen-stage-select')" class="bg-yellow-400 text-yellow-900 text-3xl font-bold py-5 px-12 rounded-full shadow-[0_6px_0_#b45309] active:shadow-[0_0px_0_#b45309] active:translate-y-[6px] transition-all">
+                        ぼうけんにでる
+                    </button>
+                    <button onclick="showDictionary()" class="bg-blue-400 text-white text-xl font-bold py-4 px-8 rounded-full shadow-[0_4px_0_#1e3a8a] active:shadow-[0_0px_0_#1e3a8a] active:translate-y-[4px] transition-all">
+                        📖 たおしたモンスターをみる
+                    </button>
+                </div>
+            </div>
+            <p class="text-xl font-bold">まほうをつかってモンスターをたおそう！</p>
+        </div>
+
+        <!-- ステージ選択画面 -->
+        <div id="screen-stage-select" class="absolute inset-0 flex flex-col p-6 bg-gradient-to-b from-green-300 to-green-500 hidden z-10">
+            <h2 class="text-3xl font-bold text-center text-white mb-6 mt-4 drop-shadow-md">どのダンジョンにいく？</h2>
+            <div id="stage-buttons-container" class="grid grid-cols-5 gap-4 flex-grow content-center max-w-4xl mx-auto w-full">
+                <!-- 1〜9の段ボタンをJSで生成 -->
+            </div>
+            
+            <!-- ぜんぶのだん ボタンを追加 -->
+            <div class="px-6 pb-4 w-full max-w-4xl mx-auto mt-4">
+                <button onclick="startStage('all')" class="w-full bg-gradient-to-r from-purple-500 to-indigo-600 border-4 border-yellow-400 text-white text-2xl md:text-3xl font-bold rounded-2xl py-4 md:py-5 shadow-[0_6px_0_#4338ca] active:shadow-[0_0px_0_#4338ca] active:translate-y-[6px] transition-all flex items-center justify-center gap-4">
+                    <span class="text-3xl md:text-4xl animate-pulse">👑</span> ぜんぶのだん（マスターへのみち） <span class="text-3xl md:text-4xl animate-pulse">👑</span>
+                </button>
+            </div>
+
+            <div class="flex justify-center mt-4 mb-4">
+                <button onclick="showScreen('screen-title')" class="bg-gray-600 text-white font-bold py-4 px-16 rounded-xl text-xl">もどる</button>
+            </div>
+        </div>
+
+        <!-- モンスターずかん画面 -->
+        <div id="screen-dictionary" class="absolute inset-0 flex flex-col p-6 bg-gradient-to-b from-purple-500 to-pink-500 hidden z-20 overflow-hidden">
+            <h2 class="text-3xl font-bold text-center text-white mb-6 mt-2 drop-shadow-md">モンスターずかん</h2>
+            <div id="dictionary-grid" class="grid grid-cols-5 gap-4 flex-grow content-start overflow-y-auto pb-4 max-w-4xl mx-auto w-full">
+                <!-- JSで図鑑の中身を生成 -->
+            </div>
+            <div class="flex justify-center mt-4">
+                <button onclick="showScreen('screen-title')" class="bg-gray-600 text-white font-bold py-4 px-16 rounded-xl text-xl w-full max-w-md">もどる</button>
+            </div>
+        </div>
+
+        <!-- バトル画面 (左右分割レイアウト) -->
+        <div id="screen-battle" class="absolute inset-0 flex flex-row hidden bg-[url('https://placehold.co/800x450/87CEEB/ffffff?text=+')] bg-cover bg-center">
+            
+            <!-- 左側：ステータスと敵エリア -->
+            <div class="w-1/2 flex flex-col justify-between p-6 relative bg-black/10 backdrop-blur-sm">
+                
+                <!-- ヘッダー（ステージ名とコンボ） -->
+                <div class="flex justify-between items-center bg-white/90 rounded-full px-6 py-3 shadow-md">
+                    <span id="stage-name" class="font-bold text-2xl text-gray-700">1のだん</span>
+                    <span id="combo-display" class="font-bold text-2xl text-orange-500 transition-all">0 コンボ!</span>
+                </div>
+
+                <!-- 敵キャラクターエリア -->
+                <div class="flex flex-col items-center justify-center flex-grow relative">
+                    <div id="enemy-hp-container" class="w-3/4 bg-gray-300 rounded-full h-5 mb-6 border-2 border-white shadow-sm overflow-hidden">
+                        <div id="enemy-hp-bar" class="bg-red-500 h-full w-full transition-all duration-300"></div>
+                    </div>
+                    <div id="enemy-sprite" class="text-9xl md:text-[11rem] filter drop-shadow-xl transition-transform duration-300">🦇</div>
+                    
+                    <!-- 魔法エフェクト用のコンテナ -->
+                    <div id="magic-container" class="absolute inset-0 flex items-center justify-center"></div>
+                </div>
+
+                <!-- プレイヤーエリア -->
+                <div class="flex items-end justify-between w-full">
+                    <div class="flex flex-col w-2/3">
+                        <span class="text-lg font-bold text-white drop-shadow-md mb-1">まほうつかい</span>
+                        <div class="w-full bg-gray-300 rounded-full h-6 border-2 border-white shadow-sm overflow-hidden">
+                            <div id="player-hp-bar" class="bg-green-500 h-full w-full transition-all duration-300"></div>
+                        </div>
+                    </div>
+                    <div class="text-7xl md:text-8xl drop-shadow-lg">🧙‍♂️</div>
+                </div>
+            </div>
+
+            <!-- 右側：問題表示と入力エリア（専用テンキー） -->
+            <div class="w-1/2 bg-white/95 shadow-[inset_5px_0_20px_rgba(0,0,0,0.1)] p-6 flex flex-col items-center justify-center">
+                
+                <!-- 問題と入力欄 -->
+                <div class="flex items-center justify-center gap-6 text-6xl font-extrabold text-gray-800 mb-10 bg-gray-100 w-full py-8 rounded-3xl border-4 border-gray-200 shadow-inner">
+                    <span id="question-text">3 × 4</span>
+                    <span>=</span>
+                    <div class="w-32 h-20 bg-white border-b-4 border-blue-500 text-center flex items-center justify-center text-blue-600">
+                        <span id="answer-input"></span>
+                    </div>
+                </div>
+
+                <!-- カスタムテンキー -->
+                <div class="grid grid-cols-5 gap-3 w-full max-w-[460px]">
+                    <button onclick="inputNumber(1)" class="numpad-btn bg-white text-gray-800 text-4xl font-bold py-6 rounded-2xl border-2 border-gray-200 shadow-sm">1</button>
+                    <button onclick="inputNumber(2)" class="numpad-btn bg-white text-gray-800 text-4xl font-bold py-6 rounded-2xl border-2 border-gray-200 shadow-sm">2</button>
+                    <button onclick="inputNumber(3)" class="numpad-btn bg-white text-gray-800 text-4xl font-bold py-6 rounded-2xl border-2 border-gray-200 shadow-sm">3</button>
+                    <button onclick="inputNumber(4)" class="numpad-btn bg-white text-gray-800 text-4xl font-bold py-6 rounded-2xl border-2 border-gray-200 shadow-sm">4</button>
+                    <button onclick="inputNumber(5)" class="numpad-btn bg-white text-gray-800 text-4xl font-bold py-6 rounded-2xl border-2 border-gray-200 shadow-sm">5</button>
+                    
+                    <button onclick="inputNumber(6)" class="numpad-btn bg-white text-gray-800 text-4xl font-bold py-6 rounded-2xl border-2 border-gray-200 shadow-sm">6</button>
+                    <button onclick="inputNumber(7)" class="numpad-btn bg-white text-gray-800 text-4xl font-bold py-6 rounded-2xl border-2 border-gray-200 shadow-sm">7</button>
+                    <button onclick="inputNumber(8)" class="numpad-btn bg-white text-gray-800 text-4xl font-bold py-6 rounded-2xl border-2 border-gray-200 shadow-sm">8</button>
+                    <button onclick="inputNumber(9)" class="numpad-btn bg-white text-gray-800 text-4xl font-bold py-6 rounded-2xl border-2 border-gray-200 shadow-sm">9</button>
+                    <button onclick="inputNumber(0)" class="numpad-btn bg-white text-gray-800 text-4xl font-bold py-6 rounded-2xl border-2 border-gray-200 shadow-sm">0</button>
+                    
+                    <button onclick="clearInput()" class="numpad-btn col-span-5 bg-red-50 text-red-500 text-2xl font-bold py-4 rounded-2xl border-2 border-red-200 mt-2 shadow-sm">けす</button>
+                </div>
+            </div>
+            
+            <!-- メッセージポップアップ用オーバーレイ -->
+            <div id="battle-message" class="absolute inset-0 pointer-events-none flex items-center justify-center z-40">
+                <!-- JSでメッセージを挿入 -->
+            </div>
+        </div>
+
+        <!-- リザルト画面 (クリア / ゲームオーバー) -->
+        <div id="screen-result" class="absolute inset-0 flex flex-col items-center justify-center p-6 bg-gradient-to-b from-yellow-300 to-orange-400 hidden z-30">
+            <div id="result-emoji" class="text-8xl mb-6 animate-bounce">🏆</div>
+            <h2 id="result-title" class="text-6xl font-extrabold text-white drop-shadow-md mb-4">ステージクリア！</h2>
+            <p id="result-text" class="text-3xl font-bold text-yellow-900 mb-10 bg-white/50 px-8 py-3 rounded-full">よくがんばったね！</p>
+            <button onclick="showScreen('screen-stage-select')" class="bg-white text-orange-600 text-3xl font-bold py-5 px-16 rounded-full shadow-[0_6px_0_#d97706] active:shadow-[0_0px_0_#d97706] active:translate-y-[6px] transition-all">
+                つぎへすすむ
+            </button>
+        </div>
+
+        <!-- モンスター詳細モーダル -->
+        <div id="monster-modal" class="absolute inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-6 backdrop-blur-sm">
+            <div class="bg-white rounded-3xl p-8 max-w-sm w-full flex flex-col items-center shadow-2xl transform transition-all duration-200 scale-95 opacity-0" id="monster-modal-content">
+                <div id="modal-emoji" class="text-8xl mb-4 animate-bounce">🦇</div>
+                <h3 id="modal-name" class="text-3xl font-extrabold text-purple-600 mb-4 text-center">名前</h3>
+                <p id="modal-desc" class="text-xl text-gray-700 font-bold mb-8 text-center leading-relaxed">せつめい</p>
+                <button onclick="closeMonsterDetails()" class="bg-purple-500 text-white font-bold py-4 px-12 rounded-full shadow-[0_4px_0_#7e22ce] active:shadow-[0_0px_0_#7e22ce] active:translate-y-[4px] transition-all text-xl">
+                    とじる
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- ゲームのデータと状態 ---
+        // モンスターの名前と説明文のデータ
+        const monsterData = {
+            '🦇': { name: 'バットくん', desc: 'くらやみが だいすき。でも ほんとうは こわがり。' },
+            '🕷️': { name: 'スパイダ', desc: 'あやとりが とっても じょうず。' },
+            '🐺': { name: 'ウルフン', desc: 'まんげつを みると うたいたくなる。' },
+            '🐍': { name: 'スネークン', desc: 'ながーい からだが じまん。よく からまる。' },
+            '🧟': { name: 'ゾンビン', desc: 'のんびりやさん。さんぽが すき。' },
+            '👻': { name: 'オバケン', desc: 'みんなを おどろかせるのが だいすきな イタズラっこ。' },
+            '💀': { name: 'ホネホネ', desc: 'カルシウム たっぷり。ミルクが だいすき。' },
+            '🧛': { name: 'ドラキュン', desc: 'トマトジュースが だいすきな きゅうけつき。' },
+            '👹': { name: 'オニオニ', desc: 'こわそうな かおだけど、じつは スイーツが すき。' },
+            '👽': { name: 'ウチュウジン', desc: 'とおくの ほしから あそびに きたよ。' },
+            '🐙': { name: 'タコキング', desc: 'うみの アイドル。あしが ８ぽん あるよ。' },
+            '🐉': { name: 'ドラゴンボス', desc: 'ククおうこくを あらす おおぼす。でも ほんとうは ひとりぼっちが さみしいらしい？' }
+        };
+        // 登場する敵の種類を大幅に追加！
+        const enemies = ['🦇', '🕷️', '🐺', '🐍', '🧟', '👻', '💀', '🧛', '👹', '👽', '🐙'];
+        const bossEmoji = '🐉';
+        
+        // ローカルストレージから倒した敵のデータを取得（なければ空配列）
+        let defeatedEnemies = JSON.parse(localStorage.getItem('kuku_defeated_enemies')) || [];
+        
+        let currentStage = 1;
+        let enemyCount = 0; // 倒した敵の数 (5体でボス)
+        let maxEnemies = 5;
+        
+        let playerMaxHP = 3;
+        let playerHP = 3;
+        let enemyMaxHP = 1;
+        let enemyHP = 1;
+        
+        let combo = 0;
+        
+        let currentQuestion = { a: 0, b: 0, ans: 0 };
+        let currentInputStr = "";
+        
+        let questionStartTime = 0;
+        let questionTimer = null;
+        const CRITICAL_TIME_LIMIT = 2000; // 2秒以内に答えればクリティカル
+        const TIME_LIMIT = 5000; // 5秒で時間切れ
+
+        const Audio = {
+            isInitialized: false,
+            initPromise: null,
+            bgmSynth: null,
+            seSynth: null,
+            bgmLoop: null,
+
+            async init() {
+                if (this.isInitialized) return;
+                // 同時初期化を防ぐためのロック処理
+                if (this.initPromise) {
+                    await this.initPromise;
+                    return;
+                }
+
+                this.initPromise = (async () => {
+                    try {
+                        await Tone.start();
+                        
+                        // BGM用のシンセサイザー (控えめな音量)
+                        this.bgmSynth = new Tone.PolySynth(Tone.Synth, {
+                            oscillator: { type: "triangle" },
+                            envelope: { attack: 0.1, decay: 0.2, sustain: 0.5, release: 1 }
+                        }).toDestination();
+                        this.bgmSynth.volume.value = -20; // BGMは小さめ
+
+                        // 効果音用のシンセサイザー (少し大きめ)
+                        this.seSynth = new Tone.Synth({
+                            oscillator: { type: "square" },
+                            envelope: { attack: 0.01, decay: 0.1, sustain: 0, release: 0.1 }
+                        }).toDestination();
+                        this.seSynth.volume.value = -10;
+
+                        Tone.Transport.bpm.value = 120;
+                        this.isInitialized = true;
+                    } catch (e) {
+                        console.error("Audio init error:", e);
+                    }
+                })();
+                
+                await this.initPromise;
+            },
+
+            playBGM(stageNum) {
+                if (!this.isInitialized) return;
+                this.stopBGM();
+
+                // 段が上がるごとに基準の音が少し高くなる
+                const baseNotes = ["C3", "D3", "E3", "F3", "G3", "A3", "B3", "C4", "D4"];
+                const baseIndex = stageNum === 'all' ? 8 : (stageNum - 1);
+                const base = baseNotes[baseIndex] || "C3";
+
+                const melody = [
+                    { time: "0:0:0", note: base, dur: "8n" },
+                    { time: "0:0:2", note: Tone.Frequency(base).transpose(7), dur: "8n" }, // 5度
+                    { time: "0:1:0", note: Tone.Frequency(base).transpose(12), dur: "8n" }, // 1オクターブ上
+                    { time: "0:1:2", note: Tone.Frequency(base).transpose(7), dur: "8n" }
+                ];
+
+                this.bgmLoop = new Tone.Part((time, value) => {
+                    this.bgmSynth.triggerAttackRelease(value.note, value.dur, time);
+                }, melody).start(0);
+
+                this.bgmLoop.loop = true;
+                this.bgmLoop.loopEnd = "0:2:0";
+                
+                // 段が上がると少しテンポアップ（ぜんぶのだんは最速）
+                Tone.Transport.bpm.value = stageNum === 'all' ? 140 : 100 + (stageNum * 4);
+                Tone.Transport.start();
+            },
+
+            stopBGM() {
+                if (this.bgmLoop) {
+                    try {
+                        this.bgmLoop.cancel();
+                        this.bgmLoop.stop(0); 
+                    } catch (e) {
+                        console.warn("BGM stop error:", e);
+                    }
+                }
+                try {
+                    if (Tone.Transport.state === "started") {
+                        Tone.Transport.stop();
+                    }
+                } catch(e){
+                     console.warn("Transport stop error:", e);
+                }
+            },
+
+            playSE(type) {
+                if (!this.isInitialized) return;
+                switch(type) {
+                    case 'attack': // 通常攻撃（ピュン！）
+                        this.seSynth.oscillator.type = "sine";
+                        this.seSynth.triggerAttackRelease("C6", "16n");
+                        break;
+                    case 'critical': // クリティカル（シャラーン！）
+                        this.bgmSynth.triggerAttackRelease(["C5", "E5", "G5", "C6"], "8n");
+                        break;
+                    case 'wrong': // 間違い（ブー）
+                        this.seSynth.oscillator.type = "sawtooth";
+                        this.seSynth.triggerAttackRelease("C2", "8n");
+                        break;
+                    case 'defeat': // 敵を倒した（ポン！）
+                        this.seSynth.oscillator.type = "square";
+                        this.seSynth.triggerAttackRelease("G4", "8n");
+                        break;
+                    case 'clear': // クリア（ファンファーレ風）
+                        this.bgmSynth.triggerAttackRelease(["C4", "E4", "G4"], "4n");
+                        setTimeout(() => this.bgmSynth.triggerAttackRelease("C5", "2n"), 300);
+                        break;
+                    case 'gameover': // ゲームオーバー
+                        this.seSynth.oscillator.type = "sawtooth";
+                        this.seSynth.triggerAttackRelease("C2", "2n");
+                        break;
+                }
+            }
+        };
+
+        // UI要素の取得
+        const screenIds = ['screen-title', 'screen-stage-select', 'screen-battle', 'screen-result', 'screen-dictionary'];
+        const displayAnswer = document.getElementById('answer-input');
+        const questionText = document.getElementById('question-text');
+        const enemySprite = document.getElementById('enemy-sprite');
+        const comboDisplay = document.getElementById('combo-display');
+        const playerHpBar = document.getElementById('player-hp-bar');
+        const enemyHpBar = document.getElementById('enemy-hp-bar');
+        const stageNameLabel = document.getElementById('stage-name');
+        const battleMessage = document.getElementById('battle-message');
+        const magicContainer = document.getElementById('magic-container');
+
+        // 画面切り替え (音声の初期化と停止をフック)
+        async function showScreen(screenId) {
+            if (questionTimer) clearTimeout(questionTimer); // 画面切り替え時にタイマーをリセット
+
+            // 音声エンジンの初期化（ユーザーの最初のタップ時に必須）
+            if (!Audio.isInitialized && screenId !== 'screen-title') {
+                await Audio.init();
+            }
+
+            // タイトルやステージ選択に戻る時はBGMを止める
+            if (screenId === 'screen-title' || screenId === 'screen-stage-select' || screenId === 'screen-dictionary') {
+                Audio.stopBGM();
+            }
+
+            screenIds.forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            document.getElementById(screenId).classList.remove('hidden');
+        }
+
+        // --- STREAMING_CHUNK: Implementing Dictionary Logic ---
+        // ずかん画面の表示
+        function showDictionary() {
+            const grid = document.getElementById('dictionary-grid');
+            grid.innerHTML = ''; // クリア
+
+            // 全ての登場予定の敵リスト（図鑑の枠として表示）
+            const allMonsters = [...enemies, bossEmoji];
+
+            allMonsters.forEach(monster => {
+                const isDefeated = defeatedEnemies.includes(monster);
+                const card = document.createElement('div');
+                card.className = "bg-white/90 rounded-2xl flex items-center justify-center h-24 text-5xl shadow-md border-4 transition-transform " + (isDefeated ? "border-yellow-400 cursor-pointer hover:scale-105 active:scale-95" : "border-gray-200");
+                
+                if (isDefeated) {
+                    card.innerText = monster;
+                    // アニメーション追加
+                    card.classList.add('animate-bounce-in');
+                    // タップした時に詳細を開く
+                    card.onclick = () => showMonsterDetails(monster);
+                } else {
+                    card.innerText = '？';
+                    card.classList.add('text-gray-300');
+                }
+                grid.appendChild(card);
+            });
+
+            showScreen('screen-dictionary');
+        }
+
+        // モンスター詳細ポップアップを表示する
+        function showMonsterDetails(monster) {
+            const modal = document.getElementById('monster-modal');
+            const content = document.getElementById('monster-modal-content');
+            const data = monsterData[monster];
+            
+            if (!data) return;
+
+            document.getElementById('modal-emoji').innerText = monster;
+            document.getElementById('modal-name').innerText = data.name;
+            document.getElementById('modal-desc').innerText = data.desc;
+
+            modal.classList.remove('hidden');
+            
+            // アニメーションのために少し遅らせてクラスを変更
+            setTimeout(() => {
+                content.classList.remove('scale-95', 'opacity-0');
+                content.classList.add('scale-100', 'opacity-100');
+            }, 10);
+            
+            Audio.playSE('attack'); // タップ音の代わり
+        }
+
+        // モンスター詳細ポップアップを閉じる
+        function closeMonsterDetails() {
+            const modal = document.getElementById('monster-modal');
+            const content = document.getElementById('monster-modal-content');
+
+            content.classList.remove('scale-100', 'opacity-100');
+            content.classList.add('scale-95', 'opacity-0');
+
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200); // 縮むアニメーションが終わるのを待ってから非表示にする
+        }
+
+        // --- STREAMING_CHUNK: Implementing game flow logic (Start, Next Enemy) ---
+        // ステージ開始
+        async function startStage(stageNum) {
+            await Audio.init(); // 念のため音声初期化を待つ
+            currentStage = stageNum;
+            stageNameLabel.innerText = stageNum === 'all' ? "ぜんぶのだん" : `${stageNum}のだん`;
+            playerMaxHP = 3; // 3回のミスでゲームオーバーになるように調整
+            playerHP = playerMaxHP;
+            combo = 0;
+            enemyCount = 0;
+            updateHPUI();
+            updateComboUI();
+            
+            showScreen('screen-battle');
+            Audio.playBGM(stageNum); // BGM再生スタート
+            spawnEnemy();
+        }
+
+        // 敵の出現
+        function spawnEnemy() {
+            enemyCount++;
+            let isBoss = (enemyCount === maxEnemies);
+            
+            // 敵のステータス設定
+            enemySprite.innerText = isBoss ? bossEmoji : enemies[Math.floor(Math.random() * enemies.length)];
+            
+            if (currentStage === 'all') {
+                // ぜんぶのだんはクリティカル約20回（ダメージ40相当）でクリア
+                // 雑魚4体 × HP4 = 16、ボス1体 × HP24 = 24 （合計 40）
+                enemyMaxHP = isBoss ? 24 : 4; 
+            } else {
+                // 通常はクリティカル約10回（ダメージ20相当）でクリア
+                // 雑魚4体 × HP2 = 8、ボス1体 × HP12 = 12 （合計 20）
+                enemyMaxHP = isBoss ? 12 : 2; 
+            }
+            enemyHP = enemyMaxHP;
+            updateHPUI();
+            
+            // アニメーションリセット
+            enemySprite.className = "text-8xl md:text-9xl filter drop-shadow-lg transition-transform duration-300 animate-bounce-in";
+            
+            generateQuestion();
+        }
+
+        // 問題の生成
+        function generateQuestion() {
+            currentQuestion.a = currentStage === 'all' ? Math.floor(Math.random() * 9) + 1 : currentStage;
+            currentQuestion.b = Math.floor(Math.random() * 9) + 1; // 1〜9
+            currentQuestion.ans = currentQuestion.a * currentQuestion.b;
+            
+            questionText.innerText = `${currentQuestion.a} × ${currentQuestion.b}`;
+            clearInput();
+
+            // 問題が表示された時間を記録（クリティカル判定用）
+            questionStartTime = Date.now();
+            
+            // 5秒経過で時間切れ処理
+            if (questionTimer) clearTimeout(questionTimer);
+            questionTimer = setTimeout(() => {
+                handleWrongAnswer(true);
+            }, TIME_LIMIT);
+        }
+
+        // --- STREAMING_CHUNK: Implementing Numpad logic ---
+        // テンキーの入力処理
+        function inputNumber(num) {
+            // 答えは最大2桁 (81) なので、それ以上は入力させない
+            if (currentInputStr.length >= 2) return;
+            
+            // 最初の入力が0なら無視 (0始まり防止)
+            if (currentInputStr === "" && num === 0) return;
+
+            currentInputStr += num.toString();
+            displayAnswer.innerText = currentInputStr;
+
+            // 答えの桁数と同じ長さになったら自動で答え合わせをする
+            const answerStr = currentQuestion.ans.toString();
+            if (currentInputStr.length === answerStr.length) {
+                // 押した数字が一瞬画面に見えるように、ほんの少しだけ待ってから判定
+                setTimeout(() => {
+                    checkAnswer();
+                }, 100);
+            }
+        }
+
+        function clearInput() {
+            currentInputStr = "";
+            displayAnswer.innerText = "";
+        }
+
+        // --- STREAMING_CHUNK: Implementing Battle Mechanics (Check, Attack, Damage) ---
+        // 答え合わせと攻撃処理
+        function checkAnswer() {
+            if (currentInputStr === "") return;
+
+            // 回答入力されたらタイマーをストップ
+            if (questionTimer) clearTimeout(questionTimer);
+
+            const userAnswer = parseInt(currentInputStr, 10);
+            
+            if (userAnswer === currentQuestion.ans) {
+                // 正解！
+                handleCorrectAnswer();
+            } else {
+                // 不正解…
+                handleWrongAnswer(false);
+            }
+        }
+
+        function handleCorrectAnswer() {
+            combo++;
+            updateComboUI();
+            
+            // クリティカル判定（2秒以内ならクリティカル）
+            const timeTaken = Date.now() - questionStartTime;
+            const isCritical = timeTaken <= CRITICAL_TIME_LIMIT;
+
+            // 魔法エフェクト
+            const effect = document.createElement('div');
+            effect.innerText = isCritical ? '💥' : ['✨', '🔥', '⚡', '🌟'][Math.floor(Math.random() * 4)];
+            effect.className = 'magic-effect';
+            if (isCritical) effect.style.fontSize = '6rem'; // クリティカルはエフェクト大
+            magicContainer.appendChild(effect);
+            setTimeout(() => effect.remove(), 500);
+
+            if (isCritical) {
+                Audio.playSE('critical');
+                showMessage("クリティカル!!", "animate-critical text-6xl");
+                enemyHP -= 2; // クリティカルはダメージ2倍
+            } else {
+                Audio.playSE('attack');
+                showMessage("せいかい！", "text-green-500 text-5xl");
+                enemyHP -= 1; // 通常ダメージ
+            }
+            
+            updateHPUI();
+            
+            // 敵がダメージを受けるアニメーション
+            enemySprite.classList.remove('animate-shake', 'animate-bounce-in');
+            void enemySprite.offsetWidth; // リフロー強制
+            enemySprite.classList.add('animate-shake');
+
+            if (enemyHP <= 0) {
+                Audio.playSE('defeat');
+                // 敵を倒した（図鑑に登録）
+                const defeatedEnemy = enemySprite.innerText;
+                if (!defeatedEnemies.includes(defeatedEnemy)) {
+                    defeatedEnemies.push(defeatedEnemy);
+                    // 次回遊ぶときも残るようにブラウザに保存
+                    localStorage.setItem('kuku_defeated_enemies', JSON.stringify(defeatedEnemies));
+                }
+
+                setTimeout(() => {
+                    enemySprite.classList.add('scale-0', 'opacity-0'); // 消える演出
+                    setTimeout(() => {
+                        if (enemyCount >= maxEnemies) {
+                            showResult(true); // クリア
+                        } else {
+                            spawnEnemy(); // 次の敵
+                        }
+                    }, 500);
+                }, 500);
+            } else {
+                // ボスなどでまだHPがある場合、次の問題をすぐ出す
+                setTimeout(() => {
+                    generateQuestion();
+                }, 800);
+            }
+        }
+
+        function handleWrongAnswer(isTimeOut = false) {
+            combo = 0;
+            updateComboUI();
+            
+            Audio.playSE('wrong');
+            showMessage(isTimeOut ? "じかんぎれ！" : "ざんねん…", "text-red-500 text-5xl");
+            
+            // プレイヤーがダメージ
+            playerHP--;
+            updateHPUI();
+            
+            // 画面全体が赤く光る演出
+            const app = document.getElementById('app-container');
+            app.classList.add('ring-8', 'ring-red-500', 'ring-inset');
+            setTimeout(() => app.classList.remove('ring-8', 'ring-red-500', 'ring-inset'), 300);
+
+            if (playerHP <= 0) {
+                setTimeout(() => {
+                    showResult(false); // ゲームオーバー
+                }, 500);
+            } else {
+                clearInput(); // 入力を消してやり直し
+                
+                // 再挑戦のためのタイマーを再スタート
+                questionStartTime = Date.now();
+                if (questionTimer) clearTimeout(questionTimer);
+                questionTimer = setTimeout(() => {
+                    handleWrongAnswer(true);
+                }, TIME_LIMIT);
+            }
+        }
+
+        // --- STREAMING_CHUNK: Implementing UI updates and Result screens ---
+        // UIの更新ヘルパー
+        function updateHPUI() {
+            const pPct = (playerHP / playerMaxHP) * 100;
+            playerHpBar.style.width = `${pPct}%`;
+            // HPが少ない時は赤くする
+            playerHpBar.className = `h-full w-full transition-all duration-300 ${pPct <= 40 ? 'bg-red-500' : 'bg-green-500'}`;
+
+            const ePct = (enemyHP / enemyMaxHP) * 100;
+            enemyHpBar.style.width = `${ePct}%`;
+        }
+
+        function updateComboUI() {
+            if (combo > 1) {
+                comboDisplay.innerText = `${combo} コンボ!`;
+                comboDisplay.classList.remove('scale-100');
+                comboDisplay.classList.add('scale-125', 'text-red-500');
+                setTimeout(() => {
+                    comboDisplay.classList.remove('scale-125', 'text-red-500');
+                    comboDisplay.classList.add('scale-100');
+                }, 300);
+            } else {
+                comboDisplay.innerText = "";
+            }
+        }
+
+        function showMessage(text, colorClass) {
+            battleMessage.innerHTML = `<div class="text-5xl font-extrabold ${colorClass} drop-shadow-[0_4px_4px_rgba(255,255,255,0.8)] animate-bounce-in">${text}</div>`;
+            setTimeout(() => {
+                battleMessage.innerHTML = "";
+            }, 1000);
+        }
+
+        function showResult(isWin) {
+            const title = document.getElementById('result-title');
+            const text = document.getElementById('result-text');
+            const emoji = document.getElementById('result-emoji');
+            const screen = document.getElementById('screen-result');
+
+            Audio.stopBGM(); // リザルト前にBGMを止める
+
+            if (isWin) {
+                Audio.playSE('clear');
+                screen.className = "absolute inset-0 flex flex-col items-center justify-center p-6 bg-gradient-to-b from-yellow-300 to-orange-400 z-30";
+                emoji.innerText = "🏆";
+                title.innerText = "ステージクリア！";
+                text.innerText = "まほうのいしを とりもどした！";
+            } else {
+                screen.className = "absolute inset-0 flex flex-col items-center justify-center p-6 bg-gradient-to-b from-gray-700 to-gray-900 z-30";
+                emoji.innerText = "🤕";
+                title.innerText = "ゲームオーバー";
+                text.innerText = "もういちど ちょうせんしよう！";
+                Audio.playSE('gameover');
+            }
+            
+            showScreen('screen-result');
+        }
+
+        // --- STREAMING_CHUNK: Initialization ---
+        window.onload = () => {
+            try {
+                // 安全な方法でステージ選択ボタンを動的生成する
+                const container = document.getElementById('stage-buttons-container');
+                if (container) {
+                    for(let i=1; i<=9; i++) {
+                        const btn = document.createElement('button');
+                        btn.onclick = () => startStage(i);
+                        btn.className = "bg-white border-4 border-green-600 text-green-700 text-2xl font-bold rounded-2xl py-6 shadow-md active:bg-gray-100 transition-colors";
+                        btn.innerText = `${i}のだん`;
+                        container.appendChild(btn);
+                    }
+                }
+            } catch(e) {
+                console.error("Initialization error:", e);
+            }
+        };
+    </script>
+</body>
+</html>
