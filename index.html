@@ -94,6 +94,14 @@
             animation: player-cast 0.45s ease-in-out;
         }
 
+        @keyframes player-bounce {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-8px) scale(1.05); }
+        }
+        .player-bounce {
+            animation: player-bounce 1.2s ease-in-out infinite;
+        }
+
         @keyframes spell-bolt {
             0% { transform: translate(-30px, 0) scale(0.5); opacity: 0; }
             25% { opacity: 1; }
@@ -233,7 +241,7 @@
                             <div id="player-hp-bar" class="bg-green-500 h-full w-full transition-all duration-300"></div>
                         </div>
                     </div>
-                    <div id="player-character" class="relative text-7xl md:text-8xl drop-shadow-lg mb-2">🧙‍♂️</div>
+                    <div id="player-character" class="relative text-7xl md:text-8xl drop-shadow-lg mb-2 player-bounce">🧙‍♀️</div>
                 </div>
             </div>
 
